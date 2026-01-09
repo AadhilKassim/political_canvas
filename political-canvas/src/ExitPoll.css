@@ -1,0 +1,28 @@
+/* Add styles for the exit poll table and container */
+
+.exit-poll-container {
+  margin: 2rem auto;
+  max-width: 500px;
+  background: #23272f;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+  padding: 2rem;
+  color: #fff;
+}
+.exit-poll-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+.exit-poll-table th, .exit-poll-table td {
+  border-bottom: 1px solid #333;
+  padding: 10px 8px;
+  text-align: center;
+}
+.exit-poll-table th {
+  background: #23272f;
+  font-weight: 600;
+}
+.exit-poll-table tr:last-child td {
+  border-bottom: none;
+}

@@ -48,7 +48,7 @@ export default function Voters({ token, role }: { token: string, role: string | 
         <form className="voter-form" onSubmit={handleSubmit}>
           <input className="voter-input" placeholder="Name" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} required />
           <input className="voter-input" placeholder="Address" value={form.address || ''} onChange={e => setForm({ ...form, address: e.target.value })} />
-          <input className="voter-input" type="number" placeholder="Age" value={form.age || ''} onChange={e => setForm({ ...form, age: e.target.value })} />
+          <input className="voter-input" type="number" placeholder="Age" min="0" value={form.age || ''} onChange={e => setForm({ ...form, age: e.target.value })} />
           <select
             className="voter-input"
             value={form.gender || ''}
@@ -61,7 +61,18 @@ export default function Voters({ token, role }: { token: string, role: string | 
             <option value="Transgender">Transgender</option>
             <option value="Other">Other</option>
           </select>
-          <input className="voter-input" placeholder="Party" value={form.party || ''} onChange={e => setForm({ ...form, party: e.target.value })} />
+          <select
+            className="voter-input"
+            value={form.party || ''}
+            onChange={e => setForm({ ...form, party: e.target.value })}
+            required
+          >
+            <option value="" disabled>Select Party</option>
+            <option value="UDF">UDF</option>
+            <option value="LDF">LDF</option>
+            <option value="BJP">BJP</option>
+            <option value="Others">Others</option>
+          </select>
           <input className="voter-input" placeholder="Leaning" value={form.leaning || ''} onChange={e => setForm({ ...form, leaning: e.target.value })} />
           <label className="voter-consent-label">
             Consent:
