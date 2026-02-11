@@ -2,6 +2,8 @@ import { useState } from 'react';
 import Login from './pages/Login';
 import Voters from './pages/Voters';
 import ExitPoll from './pages/ExitPoll';
+import Territories from './pages/Territories';
+import MyWalklist from './pages/MyWalklist';
 import './App.css';
 import './ExitPoll.css';
 
@@ -34,9 +36,12 @@ function App() {
     localStorage.removeItem('role');
   };
 
-  const [page, setPage] = useState<'voters' | 'exitpoll'>('voters');
+  const [page, setPage] = useState<'voters' | 'exitpoll' | 'territories' | 'mywalklist'>('voters');
 
   if (!token) return <Login onLogin={handleLogin} />;
+
+  const isVolunteer = role === 'volunteer';
+  const canManage = role === 'admin' || role === 'manager';
 
   return (
     <div className="main-bg">
@@ -50,12 +55,20 @@ function App() {
         </div>
         <nav className="main-nav">
           <button className={page === 'voters' ? 'nav-btn active' : 'nav-btn'} onClick={() => setPage('voters')}>Voters</button>
+          {isVolunteer && (
+            <button className={page === 'mywalklist' ? 'nav-btn active' : 'nav-btn'} onClick={() => setPage('mywalklist')}>My Walklist</button>
+          )}
+          {canManage && (
+            <button className={page === 'territories' ? 'nav-btn active' : 'nav-btn'} onClick={() => setPage('territories')}>Territories</button>
+          )}
           <button className={page === 'exitpoll' ? 'nav-btn active' : 'nav-btn'} onClick={() => setPage('exitpoll')}>Exit Poll</button>
         </nav>
       </header>
       <main className="main-content">
         {page === 'voters' && <Voters token={token} role={role} />}
         {page === 'exitpoll' && <ExitPoll token={token} />}
+        {page === 'territories' && canManage && <Territories token={token} role={role} />}
+        {page === 'mywalklist' && isVolunteer && <MyWalklist token={token} />}
       </main>
     </div>
   );

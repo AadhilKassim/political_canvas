@@ -16,7 +16,11 @@ CREATE TABLE IF NOT EXISTS voters (
   gender VARCHAR(10),
   party VARCHAR(50),
   leaning VARCHAR(50),
-  consent BOOLEAN DEFAULT FALSE
+  consent BOOLEAN DEFAULT FALSE,
+  territory_id INT,
+  last_contacted TIMESTAMP NULL,
+  contact_status ENUM('not_contacted', 'contacted', 'supporter', 'undecided', 'opposed', 'not_home', 'do_not_contact') DEFAULT 'not_contacted',
+  FOREIGN KEY (territory_id) REFERENCES territories(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS logs (
@@ -34,12 +38,21 @@ CREATE TABLE IF NOT EXISTS logs (
 CREATE TABLE IF NOT EXISTS walklists (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100),
-  filter TEXT
+  territory_id INT,
+  assigned_to INT,
+  status ENUM('not_started', 'in_progress', 'completed') DEFAULT 'not_started',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP NULL,
+  FOREIGN KEY (territory_id) REFERENCES territories(id) ON DELETE CASCADE,
+  FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS territories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100),
+  description TEXT,
+  area_type ENUM('neighborhood', 'street', 'ward', 'district', 'custom') DEFAULT 'custom',
   assigned_to INT,
-  FOREIGN KEY (assigned_to) REFERENCES users(id)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
 );

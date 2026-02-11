@@ -2,27 +2,112 @@
 
 .exit-poll-container {
   margin: 2rem auto;
-  max-width: 500px;
+  max-width: 600px;
   background: #23272f;
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.12);
   padding: 2rem;
   color: #fff;
 }
-.exit-poll-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 1rem;
-}
-.exit-poll-table th, .exit-poll-table td {
-  border-bottom: 1px solid #333;
-  padding: 10px 8px;
+
+.exit-poll-container h2 {
   text-align: center;
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
 }
-.exit-poll-table th {
-  background: #23272f;
+
+.donut-chart-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.donut-chart {
+  width: 280px;
+  height: 280px;
+  transform: rotate(-90deg);
+}
+
+.donut-segment {
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+}
+
+.donut-segment:hover {
+  opacity: 0.8;
+}
+
+.donut-total-label {
+  font-size: 12px;
+  fill: #999;
+  font-weight: 500;
+  transform: rotate(90deg);
+  transform-origin: center;
+}
+
+.donut-total-count {
+  font-size: 28px;
+  fill: #fff;
+  font-weight: bold;
+  transform: rotate(90deg);
+  transform-origin: center;
+}
+
+.donut-legend {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #2a2f38;
+  border-radius: 8px;
+  transition: transform 0.2s ease;
+}
+
+.legend-item:hover {
+  transform: translateY(-2px);
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.legend-party {
   font-weight: 600;
+  font-size: 0.95rem;
+  color: #fff;
 }
-.exit-poll-table tr:last-child td {
-  border-bottom: none;
+
+.legend-count {
+  font-size: 0.85rem;
+  color: #999;
+}
+
+@media (max-width: 500px) {
+  .donut-legend {
+    grid-template-columns: 1fr;
+  }
+  
+  .donut-chart {
+    width: 240px;
+    height: 240px;
+  }
 }

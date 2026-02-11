@@ -28,12 +28,13 @@ app.get('/api/health', (req, res) => {
 });
 
 // User registration
-// Only admin can register new users
-app.post('/api/auth/register', auth, requireRole('admin'), async (req, res) => {
+// Open registration (sets role to 'volunteer' by default)
+app.post('/api/auth/register', async (req, res) => {
   const { username, password, role } = req.body;
   const hash = await bcrypt.hash(password, 10);
   try {
-    await db.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, hash, role || 'volunteer']);
+    // Force role to 'volunteer' for open registration (only admins can create other roles)
+    await db.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, hash, 'volunteer']);
     res.json({ message: 'User registered' });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -143,32 +144,176 @@ app.post('/api/logs', auth, async (req, res) => {
   res.json({ message: 'Log added' });
 });
 
+// Territories
+// All roles can view territories
+app.get('/api/territories', auth, async (req, res) => {
+  const [rows] = await db.execute(`
+    SELECT t.*, u.username as assigned_username 
+    FROM territories t 
+    LEFT JOIN users u ON t.assigned_to = u.id
+  `);
+  res.json(rows);
+});
+
+// Get my territories (for volunteers)
+app.get('/api/territories/my', auth, async (req, res) => {
+  const [rows] = await db.execute(`
+    SELECT t.*, 
+      (SELECT COUNT(*) FROM voters WHERE territory_id = t.id) as total_voters,
+      (SELECT COUNT(*) FROM voters WHERE territory_id = t.id AND contact_status != 'not_contacted') as contacted_voters
+    FROM territories t 
+    WHERE t.assigned_to = ?
+  `, [req.user.id]);
+  res.json(rows);
+});
+
+// Get territory details with voters
+app.get('/api/territories/:id', auth, async (req, res) => {
+  const { id } = req.params;
+  
+  // Check if user has access (admin, manager, or assigned volunteer)
+  const [territory] = await db.execute('SELECT * FROM territories WHERE id = ?', [id]);
+  if (!territory.length) return res.status(404).json({ error: 'Territory not found' });
+  
+  if (req.user.role === 'volunteer' && territory[0].assigned_to !== req.user.id) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  
+  const [voters] = await db.execute(`
+    SELECT v.*, l.notes as last_note, l.created_at as last_contact_date
+    FROM voters v
+    LEFT JOIN (
+      SELECT voter_id, notes, created_at,
+        ROW_NUMBER() OVER (PARTITION BY voter_id ORDER BY created_at DESC) as rn
+      FROM logs
+    ) l ON v.id = l.voter_id AND l.rn = 1
+    WHERE v.territory_id = ?
+    ORDER BY v.contact_status, v.address
+  `, [id]);
+  
+  res.json({ territory: territory[0], voters });
+});
+
+// Only admin and manager can create territories
+app.post('/api/territories', auth, requireRole('admin', 'manager'), async (req, res) => {
+  const { name, description, area_type, assigned_to } = req.body;
+  const [result] = await db.execute(
+    'INSERT INTO territories (name, description, area_type, assigned_to) VALUES (?, ?, ?, ?)', 
+    [name, description || null, area_type || 'custom', assigned_to || null]
+  );
+  res.json({ message: 'Territory created', id: result.insertId });
+});
+
+// Update territory
+app.put('/api/territories/:id', auth, requireRole('admin', 'manager'), async (req, res) => {
+  const { id } = req.params;
+  const { name, description, area_type, assigned_to } = req.body;
+  await db.execute(
+    'UPDATE territories SET name=?, description=?, area_type=?, assigned_to=? WHERE id=?',
+    [name, description || null, area_type || 'custom', assigned_to || null, id]
+  );
+  res.json({ message: 'Territory updated' });
+});
+
+// Delete territory
+app.delete('/api/territories/:id', auth, requireRole('admin', 'manager'), async (req, res) => {
+  const { id } = req.params;
+  await db.execute('DELETE FROM territories WHERE id=?', [id]);
+  res.json({ message: 'Territory deleted' });
+});
+
+// Assign voters to territory
+app.post('/api/territories/:id/assign-voters', auth, requireRole('admin', 'manager'), async (req, res) => {
+  const { id } = req.params;
+  const { voter_ids } = req.body;
+  
+  for (const voter_id of voter_ids) {
+    await db.execute('UPDATE voters SET territory_id = ? WHERE id = ?', [id, voter_id]);
+  }
+  
+  res.json({ message: 'Voters assigned to territory' });
+});
+
 // Walk lists
 // All roles can view walklists
 app.get('/api/walklists', auth, async (req, res) => {
-  const [rows] = await db.execute('SELECT * FROM walklists');
+  const [rows] = await db.execute(`
+    SELECT w.*, t.name as territory_name, u.username as assigned_username 
+    FROM walklists w
+    LEFT JOIN territories t ON w.territory_id = t.id
+    LEFT JOIN users u ON w.assigned_to = u.id
+  `);
+  res.json(rows);
+});
+
+// Get my walklists (for volunteers)
+app.get('/api/walklists/my', auth, async (req, res) => {
+  const [rows] = await db.execute(`
+    SELECT w.*, t.name as territory_name,
+      (SELECT COUNT(*) FROM voters WHERE territory_id = w.territory_id) as total_voters,
+      (SELECT COUNT(*) FROM voters WHERE territory_id = w.territory_id AND contact_status != 'not_contacted') as contacted_voters
+    FROM walklists w
+    LEFT JOIN territories t ON w.territory_id = t.id
+    WHERE w.assigned_to = ?
+    ORDER BY w.status, w.created_at DESC
+  `, [req.user.id]);
   res.json(rows);
 });
 
 // Only admin and manager can create walklists
 app.post('/api/walklists', auth, requireRole('admin', 'manager'), async (req, res) => {
-  const { name, filter } = req.body;
-  await db.execute('INSERT INTO walklists (name, filter) VALUES (?, ?)', [name, JSON.stringify(filter)]);
-  res.json({ message: 'Walklist created' });
+  const { name, territory_id, assigned_to } = req.body;
+  const [result] = await db.execute(
+    'INSERT INTO walklists (name, territory_id, assigned_to) VALUES (?, ?, ?)', 
+    [name, territory_id, assigned_to]
+  );
+  res.json({ message: 'Walklist created', id: result.insertId });
 });
 
-// Territories
-// All roles can view territories
-app.get('/api/territories', auth, async (req, res) => {
-  const [rows] = await db.execute('SELECT * FROM territories');
+// Update walklist status
+app.put('/api/walklists/:id', auth, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  
+  const completed_at = status === 'completed' ? new Date() : null;
+  await db.execute(
+    'UPDATE walklists SET status=?, completed_at=? WHERE id=?',
+    [status, completed_at, id]
+  );
+  res.json({ message: 'Walklist updated' });
+});
+
+// Update voter contact status (for volunteers during canvassing)
+app.put('/api/voters/:id/contact', auth, async (req, res) => {
+  const { id } = req.params;
+  const { contact_status, notes, sentiment, issues } = req.body;
+  
+  try {
+    // Update voter status
+    await db.execute(
+      'UPDATE voters SET contact_status=?, last_contacted=NOW() WHERE id=?',
+      [contact_status, id]
+    );
+    
+    // Add log entry
+    if (notes || sentiment || issues) {
+      await db.execute(
+        'INSERT INTO logs (voter_id, user_id, sentiment, issues, notes) VALUES (?, ?, ?, ?, ?)', 
+        [id, req.user.id, sentiment || null, issues || null, notes || null]
+      );
+    }
+    
+    res.json({ message: 'Contact recorded', success: true });
+  } catch (err) {
+    console.error('Error updating voter contact:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get volunteers list (for assignment)
+app.get('/api/users/volunteers', auth, requireRole('admin', 'manager'), async (req, res) => {
+  const [rows] = await db.execute('SELECT id, username, role FROM users WHERE role = "volunteer"');
   res.json(rows);
-});
-
-// Only admin and manager can assign territories
-app.post('/api/territories', auth, requireRole('admin', 'manager'), async (req, res) => {
-  const { name, assigned_to } = req.body;
-  await db.execute('INSERT INTO territories (name, assigned_to) VALUES (?, ?)', [name, assigned_to]);
-  res.json({ message: 'Territory assigned' });
 });
 
 // Offline sync

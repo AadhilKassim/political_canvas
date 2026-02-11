@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "political_canvas Docs": {
+      "type": "sse",
+      "url": "https://gitmcp.io/AadhilKassim/political_canvas"
+    }
+  }
+}

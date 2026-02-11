@@ -5,10 +5,24 @@ export default function Voters({ token, role }: { token: string, role: string | 
   const [voters, setVoters] = useState<any[]>([]);
   const [form, setForm] = useState<any>({});
   const [editId, setEditId] = useState<number | null>(null);
+  const [filterColumn, setFilterColumn] = useState<string>('all');
+  const [filterValue, setFilterValue] = useState<string>('');
+  const [error, setError] = useState<string>('');
 
   const fetchVoters = async () => {
-    const data = await getVoters(token);
-    setVoters(data);
+    try {
+      const data = await getVoters(token);
+      if (!Array.isArray(data)) {
+        setError(data?.error || 'Failed to load voters. Please log in again.');
+        setVoters([]);
+        return;
+      }
+      setError('');
+      setVoters(data);
+    } catch (err) {
+      setError('Failed to load voters. Please try again.');
+      setVoters([]);
+    }
   };
 
   useEffect(() => {
@@ -37,6 +51,23 @@ export default function Voters({ token, role }: { token: string, role: string | 
     fetchVoters();
   };
 
+  // Filter voters based on selected column and value
+  const filteredVoters = voters.filter(voter => {
+    if (filterColumn === 'all' || !filterValue) return true;
+    
+    const value = voter[filterColumn];
+    if (value === null || value === undefined) return false;
+    
+    // For consent, convert boolean to string
+    if (filterColumn === 'consent') {
+      const consentString = value ? 'yes' : 'no';
+      return consentString.toLowerCase().includes(filterValue.toLowerCase());
+    }
+    
+    // For other fields, do string comparison
+    return String(value).toLowerCase().includes(filterValue.toLowerCase());
+  });
+
   // Only admin/manager can add/edit, only admin can delete
   const canAddEdit = role === 'admin' || role === 'manager';
   const canDelete = role === 'admin';
@@ -44,6 +75,43 @@ export default function Voters({ token, role }: { token: string, role: string | 
   return (
     <div className="voters-container">
       <h2>Voters</h2>
+      {error && <div className="error" style={{ color: '#e74c3c', marginBottom: 12 }}>{error}</div>}
+      
+      {/* Filter Section */}
+      <div className="filter-section">
+        <select 
+          className="filter-select"
+          value={filterColumn}
+          onChange={e => setFilterColumn(e.target.value)}
+        >
+          <option value="all">All Columns</option>
+          <option value="name">Name</option>
+          <option value="address">Address</option>
+          <option value="age">Age</option>
+          <option value="gender">Gender</option>
+          <option value="party">Party</option>
+          <option value="leaning">Leaning</option>
+          <option value="consent">Consent</option>
+        </select>
+        <input 
+          className="filter-input"
+          type="text"
+          placeholder="Filter value..."
+          value={filterValue}
+          onChange={e => setFilterValue(e.target.value)}
+          disabled={filterColumn === 'all'}
+        />
+        <button 
+          className="filter-clear-btn"
+          onClick={() => { setFilterColumn('all'); setFilterValue(''); }}
+        >
+          Clear
+        </button>
+        <span className="filter-count">
+          Showing {filteredVoters.length} of {voters.length} voters
+        </span>
+      </div>
+
       {canAddEdit && (
         <form className="voter-form" onSubmit={handleSubmit}>
           <input className="voter-input" placeholder="Name" value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} required />
@@ -90,7 +158,7 @@ export default function Voters({ token, role }: { token: string, role: string | 
             </tr>
           </thead>
           <tbody>
-            {voters.map(v => (
+            {filteredVoters.map(v => (
               <tr key={v.id}>
                 <td>{v.name}</td>
                 <td>{v.address}</td>

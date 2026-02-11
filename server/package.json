@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "seed": "node add_sample_voters.js",
+    "migrate": "node migrate_schema.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
